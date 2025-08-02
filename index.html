@@ -92,7 +92,7 @@
             background-color: #FFB300;
         }
 
-        #game-screen {
+        #game-screen, #end-screen {
             display: none;
         }
 
@@ -277,6 +277,12 @@
         <div id="vietnamese-meaning"></div>
         <button id="check-button" class="button">Kiểm tra</button>
     </div>
+
+    <div id="end-screen" class="container">
+        <h2 id="end-message"></h2>
+        <p id="final-score"></p>
+        <button id="play-again-button" class="button">Chơi Lại</button>
+    </div>
     
     <div id="correct-answer-display"></div>
     <canvas id="fireworks-canvas"></canvas>
@@ -347,8 +353,10 @@
         // --- DOM Elements ---
         const splashScreen = document.getElementById('splash-screen');
         const gameScreen = document.getElementById('game-screen');
+        const endScreen = document.getElementById('end-screen');
         const startButton = document.getElementById('start-button');
         const resetButton = document.getElementById('reset-button');
+        const playAgainButton = document.getElementById('play-again-button');
         const ipaDisplay = document.getElementById('ipa-display');
         const wordInput = document.getElementById('word-input');
         const checkButton = document.getElementById('check-button');
@@ -357,10 +365,17 @@
         const vietnameseMeaning = document.getElementById('vietnamese-meaning');
         const ipaContainer = document.getElementById('ipa-display');
         const correctAnswerDisplay = document.getElementById('correct-answer-display');
+        const endMessage = document.getElementById('end-message');
+        const finalScore = document.getElementById('final-score');
         
         // --- Event Listeners ---
         startButton.addEventListener('click', startGame);
-        resetButton.addEventListener('click', resetGame);
+        resetButton.addEventListener('click', () => {
+            gameScreen.style.display = 'none';
+            splashScreen.style.display = 'block';
+            clearFeedback();
+        });
+        playAgainButton.addEventListener('click', startGame);
         checkButton.addEventListener('click', checkAnswer);
         wordInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -378,19 +393,11 @@
             isGameOver = false;
 
             splashScreen.style.display = 'none';
+            endScreen.style.display = 'none';
             gameScreen.style.display = 'block';
             
             updateScore();
             nextWord();
-        }
-
-        function resetGame() {
-            gameScreen.style.display = 'none';
-            splashScreen.style.display = 'block';
-            clearFeedback();
-            // Reset game elements for a new game
-            wordInput.style.display = 'block';
-            checkButton.style.display = 'block';
         }
 
         function shuffleArray(array) {
@@ -489,12 +496,16 @@
 
         function endGame() {
             isGameOver = true;
-            ipaDisplay.textContent = 'Chúc mừng!';
-            feedback.textContent = `Bạn đã hoàn thành trò chơi! Điểm của bạn là ${score}/${shuffledWords.length}.`;
-            feedback.style.color = '#4CAF50'; // Use direct color value
-            wordInput.style.display = 'none';
-            checkButton.style.display = 'none';
-            vietnameseMeaning.textContent = 'Nhấn "Quay lại" để chơi lại.';
+            gameScreen.style.display = 'none';
+            endScreen.style.display = 'block';
+
+            endMessage.textContent = `Chúc mừng! Bạn đã hoàn thành trò chơi.`;
+            finalScore.textContent = `Bạn đã trả lời đúng ${score} trên tổng số ${shuffledWords.length} từ vựng.`;
+            
+            // Clear any lingering fireworks
+            const canvas = document.getElementById('fireworks-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
         // --- Audio Functionality (Web Speech API) ---
