@@ -44,7 +44,7 @@
             z-index: 10;
             transition: transform 0.3s ease, opacity 0.3s ease;
         }
-
+        
         h1 {
             font-size: 2.5rem;
             color: var(--primary-color);
@@ -60,6 +60,22 @@
         p {
             font-size: 1.2rem;
             line-height: 1.6;
+        }
+
+        input[type="text"] {
+            width: calc(100% - 2rem);
+            padding: 1rem;
+            font-size: 1.2rem;
+            border: 2px solid #ddd;
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box; /* Sửa lỗi: Cân đối kích thước */
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
         }
 
         .button {
@@ -92,10 +108,13 @@
             background-color: #FFB300;
         }
 
+        #splash-screen {
+            display: block;
+        }
         #game-screen, #end-screen {
             display: none;
         }
-
+        
         #ipa-display {
             font-size: 3rem;
             font-family: monospace;
@@ -109,7 +128,6 @@
             font-weight: 700;
         }
         
-        /* New style for the correct answer display */
         #correct-answer-display {
             position: absolute;
             top: 50%;
@@ -179,6 +197,20 @@
             font-size: 1.5rem;
             font-weight: bold;
             margin-bottom: 1.5rem;
+        }
+        
+        /* New style for hint display */
+        #hint-button {
+            display: none; /* Ẩn nút gợi ý mặc định */
+        }
+
+        #hint-display {
+            display: none; /* Ẩn gợi ý mặc định */
+            margin-top: 1rem;
+            font-style: italic;
+            color: var(--secondary-color);
+            font-weight: bold;
+            min-height: 2rem;
         }
 
         /* Responsive styles */
@@ -265,6 +297,8 @@
     <div id="splash-screen" class="container">
         <h1>Học IPA qua Game</h1>
         <p>Viết từ đúng chính tả dựa trên phiên âm IPA. Bạn có 2 lần thử cho mỗi từ.</p>
+        <input type="text" id="player-name-input" placeholder="Nhập tên của bạn" />
+        <div id="feedback-splash"></div>
         <button id="start-button" class="button">Bắt đầu</button>
     </div>
 
@@ -272,10 +306,12 @@
         <button id="reset-button" class="button secondary" style="position: absolute; top: 1rem; right: 1rem;">Quay lại</button>
         <div class="score-display">Điểm: <span id="score">0</span></div>
         <div id="ipa-display"></div>
+        <div id="vietnamese-meaning"></div>
+        <div id="hint-display"></div>
         <input type="text" id="word-input" placeholder="Nhập từ của bạn" />
         <div id="feedback"></div>
-        <div id="vietnamese-meaning"></div>
         <button id="check-button" class="button">Kiểm tra</button>
+        <button id="hint-button" class="button secondary" style="margin-top: 1rem;">Gợi Ý</button>
     </div>
 
     <div id="end-screen" class="container">
@@ -349,17 +385,22 @@
         let incorrectAttempts = 0;
         let shuffledWords = [];
         let isGameOver = false;
+        let playerName = '';
+        let hintUsed = false; // Biến cờ để kiểm tra đã dùng gợi ý hay chưa
 
         // --- DOM Elements ---
         const splashScreen = document.getElementById('splash-screen');
         const gameScreen = document.getElementById('game-screen');
         const endScreen = document.getElementById('end-screen');
+        const playerNameInput = document.getElementById('player-name-input');
         const startButton = document.getElementById('start-button');
         const resetButton = document.getElementById('reset-button');
         const playAgainButton = document.getElementById('play-again-button');
         const ipaDisplay = document.getElementById('ipa-display');
         const wordInput = document.getElementById('word-input');
         const checkButton = document.getElementById('check-button');
+        const hintButton = document.getElementById('hint-button');
+        const feedbackSplash = document.getElementById('feedback-splash');
         const feedback = document.getElementById('feedback');
         const scoreDisplay = document.getElementById('score');
         const vietnameseMeaning = document.getElementById('vietnamese-meaning');
@@ -367,6 +408,7 @@
         const correctAnswerDisplay = document.getElementById('correct-answer-display');
         const endMessage = document.getElementById('end-message');
         const finalScore = document.getElementById('final-score');
+        const hintDisplay = document.getElementById('hint-display');
         
         // --- Event Listeners ---
         startButton.addEventListener('click', startGame);
@@ -377,15 +419,26 @@
         });
         playAgainButton.addEventListener('click', startGame);
         checkButton.addEventListener('click', checkAnswer);
+        hintButton.addEventListener('click', giveHint);
         wordInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 checkAnswer();
             }
         });
+        wordInput.addEventListener('focus', () => {
+            hintDisplay.style.display = 'none'; // Ẩn gợi ý khi người dùng bắt đầu nhập
+        });
 
         // --- Game Logic Functions ---
         function startGame() {
-            // Shuffle the vocabulary array to randomize the word order
+            playerName = playerNameInput.value.trim();
+            if (playerName === '') {
+                feedbackSplash.textContent = 'Vui lòng nhập tên của bạn để bắt đầu trò chơi!';
+                feedbackSplash.style.color = '#dc3545';
+                playerNameInput.focus();
+                return;
+            }
+
             shuffledWords = shuffleArray([...vocabulary]);
             currentWordIndex = 0;
             score = 0;
@@ -412,10 +465,13 @@
             clearFeedback();
             wordInput.value = '';
             wordInput.focus();
+            hintButton.style.display = 'none'; // Ẩn nút gợi ý khi chuyển câu hỏi mới
+            hintUsed = false; // Reset cờ gợi ý
 
             if (currentWordIndex < shuffledWords.length) {
                 const wordData = shuffledWords[currentWordIndex];
                 ipaDisplay.textContent = wordData.ipa;
+                vietnameseMeaning.textContent = wordData.meaning; // Hiển thị nghĩa tiếng Việt
                 incorrectAttempts = 0;
             } else {
                 endGame();
@@ -429,33 +485,29 @@
             const correctWord = shuffledWords[currentWordIndex].word.toLowerCase();
 
             if (userInput === correctWord) {
-                // Correct answer
-                score++;
+                if (!hintUsed) {
+                    score++;
+                }
                 updateScore();
                 feedback.textContent = 'Chính xác!';
-                feedback.style.color = '#28a745'; // Use direct color value
+                feedback.style.color = '#28a745';
                 
-                // Audio, flash, meaning, and fireworks
                 playAudio(correctWord);
                 showCorrectAnswerEffects();
 
                 setTimeout(() => {
                     currentWordIndex++;
                     nextWord();
-                }, 3000); // Wait for animations to finish
+                }, 3000);
             } else {
-                // Incorrect answer
                 incorrectAttempts++;
-                if (incorrectAttempts > 2) {
-                    feedback.textContent = `Sai quá 2 lần. Đáp án đúng là: ${correctWord.toUpperCase()}`;
-                    feedback.style.color = '#dc3545'; // Use direct color value
-                    setTimeout(() => {
-                        currentWordIndex++;
-                        nextWord();
-                    }, 2000);
+                if (incorrectAttempts >= 2) {
+                    feedback.textContent = `Sai rồi! Thử lại (${incorrectAttempts}/2). Nhấn Gợi Ý nếu bạn không biết.`;
+                    feedback.style.color = '#dc3545';
+                    hintButton.style.display = 'block';
                 } else {
                     feedback.textContent = `Sai rồi! Thử lại (${incorrectAttempts}/2)`;
-                    feedback.style.color = '#dc3545'; // Use direct color value
+                    feedback.style.color = '#dc3545';
                     wordInput.value = '';
                 }
             }
@@ -464,7 +516,6 @@
         function showCorrectAnswerEffects() {
             const wordData = shuffledWords[currentWordIndex];
             
-            // Show the correct word, IPA, and meaning in a new, prominent element
             correctAnswerDisplay.innerHTML = `
                 <div class="correct-word">${wordData.word.toUpperCase()}</div>
                 <div class="ipa-meaning">${wordData.ipa}</div>
@@ -472,19 +523,26 @@
             `;
             correctAnswerDisplay.style.display = 'flex';
             
-            // Trigger fireworks animation
             showFireworks();
+        }
+
+        function giveHint() {
+            const wordData = shuffledWords[currentWordIndex];
+            hintDisplay.textContent = `Gợi ý: ${wordData.word.toUpperCase()}`;
+            hintDisplay.style.display = 'block';
+            hintUsed = true;
+            hintButton.style.display = 'none';
         }
 
         function clearFeedback() {
             feedback.textContent = '';
+            feedbackSplash.textContent = '';
             vietnameseMeaning.textContent = '';
             ipaContainer.classList.remove('flash');
-            
-            // Clear the temporary correct answer display
             correctAnswerDisplay.style.display = 'none';
+            hintDisplay.textContent = '';
+            hintDisplay.style.display = 'none';
 
-            // Clear any lingering fireworks
             const canvas = document.getElementById('fireworks-canvas');
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -499,20 +557,18 @@
             gameScreen.style.display = 'none';
             endScreen.style.display = 'block';
 
-            endMessage.textContent = `Chúc mừng! Bạn đã hoàn thành trò chơi.`;
+            endMessage.textContent = `Chúc mừng, ${playerName}! Bạn đã hoàn thành trò chơi.`;
             finalScore.textContent = `Bạn đã trả lời đúng ${score} trên tổng số ${shuffledWords.length} từ vựng.`;
             
-            // Clear any lingering fireworks
             const canvas = document.getElementById('fireworks-canvas');
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
-        // --- Audio Functionality (Web Speech API) ---
         function playAudio(text) {
             if ('speechSynthesis' in window) {
                 const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'en-US'; // Set language to English for pronunciation
+                utterance.lang = 'en-US';
                 window.speechSynthesis.speak(utterance);
             } else {
                 console.log("Web Speech API is not supported in this browser.");
@@ -525,7 +581,6 @@
         let particles = [];
         let animationFrameId;
 
-        // Set canvas size
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -534,13 +589,11 @@
         resizeCanvas();
 
         function showFireworks() {
-            // Clear previous animation
             if (animationFrameId) {
                 cancelAnimationFrame(animationFrameId);
             }
             particles = [];
             
-            // Create multiple bursts of fireworks
             for (let i = 0; i < 5; i++) {
                 createFirework(
                     Math.random() * canvas.width,
@@ -548,10 +601,8 @@
                 );
             }
 
-            // Start animation loop
             animateFireworks();
             
-            // Stop fireworks after a few seconds
             setTimeout(() => {
                 cancelAnimationFrame(animationFrameId);
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
